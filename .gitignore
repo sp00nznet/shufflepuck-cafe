@@ -3,6 +3,8 @@
 # lifted representation of them stay local. Bring your own copy.
 original/
 work/
+# lifted 68k -> C: a derivative of the copyrighted game code
+src/gen/
 *.dc42
 *.img
 *.dsk

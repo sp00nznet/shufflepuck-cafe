@@ -84,8 +84,8 @@ creator `PUCK`, 644 KB resource fork):
 | 1 | Extract resources (CODE + assets) | ✅ via `ext/macrecomp` |
 | 2 | Disassemble + classify trap surface | ✅ [`docs/CLASSIFY.md`](docs/CLASSIFY.md) — **GO, but the code is protected** |
 | 2.5 | Unpack the self-decrypting CODE | ✅ [`docs/PROTECTION.md`](docs/PROTECTION.md) — **defeated, byte-exact** |
-| 3 | Lift 68k → C | 🔨 **next** |
-| 4 | Toolbox HAL → SDL2 (QuickDraw/Event/Sound) | ⬜ |
+| 3 | Lift 68k → C | ✅ **98.5 / 99.9 / 100%** coverage; whole program compiles + links |
+| 4 | Toolbox HAL → SDL2 (QuickDraw/Event/Sound) | 🔨 **next** |
 | 5 | Build & debug to a playable table | ⬜ |
 | 6 | Ship native + extras | ⬜ |
 
@@ -121,19 +121,23 @@ shufflepuck-cafe/
 
 ## Building & running
 
-Nothing to build yet — we're at Phase 0/2. Clone with the toolkit submodule:
+The lifted C **compiles and links** into a native binary today (it doesn't *play*
+yet — that needs the Phase-4 Toolbox HAL). Clone with the toolkit submodule, drop
+your own disk image in `original/`, and build:
 
 ```bash
 git clone --recursive https://github.com/sp00nznet/shufflepuck-cafe.git
-# already cloned?
-git submodule update --init --recursive
+# already cloned?  git submodule update --init --recursive
+
+# needs: python3 + macresources/machfs/capstone, and a C compiler
+# (Windows/MSYS2: export PATH="/c/msys64/mingw64/bin:$PATH" first)
+./build.sh "original/Shufflepuck Cafe - Disk 2 (Game).dc42"
 ```
 
-Bring your own disk image (see legal note), then extract to start digging:
-
-```bash
-python ext/macrecomp/tools/extract_resources.py "original/Shufflepuck Cafe.dc42" -o work/
-```
+`build.sh` regenerates the lifted code from *your* image and compiles it —
+**nothing game-derived is committed to this repo** (`src/gen/` is gitignored;
+see the legal note). Only the hand-written harness (`src/main.c`) and the
+toolkit live here.
 
 ## Credits & legal
 
