@@ -1,0 +1,3 @@
+[submodule "ext/macrecomp"]
+	path = ext/macrecomp
+	url = https://github.com/sp00nznet/macrecomp.git

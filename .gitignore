@@ -1,0 +1,27 @@
+# === COPYRIGHTED GAME DATA — never commit ===
+# Shufflepuck is commercial abandonware; the image, extracted resources, and any
+# lifted representation of them stay local. Bring your own copy.
+original/
+work/
+*.dc42
+*.img
+*.dsk
+*.moof
+*.sit
+*.bin
+
+# build output
+build/
+out/
+.vs/
+CMakeSettings.json
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# editor / OS
+.idea/
+*.swp
+.DS_Store
