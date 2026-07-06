@@ -82,11 +82,22 @@ creator `PUCK`, 644 KB resource fork):
 |------:|------|-------|
 | 0 | Acquire + recon | ✅ [`docs/RECON.md`](docs/RECON.md) |
 | 1 | Extract resources (CODE + assets) | ✅ via `ext/macrecomp` |
-| 2 | Disassemble + classify trap surface | 🔨 **the go/no-go gate** |
+| 2 | Disassemble + classify trap surface | ✅ [`docs/CLASSIFY.md`](docs/CLASSIFY.md) — **GO, but the code is protected** |
+| 2.5 | Unpack the self-decrypting CODE | 🔨 **next** |
 | 3 | Lift 68k → C | ⬜ |
 | 4 | Toolbox HAL → SDL2 (QuickDraw/Event/Sound) | ⬜ |
 | 5 | Build & debug to a playable table | ⬜ |
 | 6 | Ship native + extras | ⬜ |
+
+> **Phase 2 plot twist:** the game is copy-protected. The 68k code is *encrypted
+> at rest* inside the `CODE` resources; **CODE 4 is a plaintext self-decrypting
+> segment loader** (entry point at seg 4 +0x42) that unpacks the rest at launch.
+> Proven by a control (the disk's Finder disassembles cleanly; Shufflepuck's CODE
+> is noise) and by reading CODE 4's `neg.w`-loop / `_NewPtr` / `_GetResource`
+> decryptor. It's not a simple cipher (tested). So a small **Phase 2.5 unpack**
+> lands before lifting — either a dynamic snapshot (let it decrypt itself, dump
+> memory — how Bolo beat PKLITE) or a static reversal of CODE 4. See
+> [`docs/CLASSIFY.md`](docs/CLASSIFY.md).
 
 See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap.
 
