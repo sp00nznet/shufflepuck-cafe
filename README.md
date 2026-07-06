@@ -83,23 +83,26 @@ creator `PUCK`, 644 KB resource fork):
 | 0 | Acquire + recon | ✅ [`docs/RECON.md`](docs/RECON.md) |
 | 1 | Extract resources (CODE + assets) | ✅ via `ext/macrecomp` |
 | 2 | Disassemble + classify trap surface | ✅ [`docs/CLASSIFY.md`](docs/CLASSIFY.md) — **GO, but the code is protected** |
-| 2.5 | Unpack the self-decrypting CODE | 🟡 [`docs/PROTECTION.md`](docs/PROTECTION.md) — jump table **cracked**; segment bodies WIP |
-| 3 | Lift 68k → C | ⬜ |
+| 2.5 | Unpack the self-decrypting CODE | ✅ [`docs/PROTECTION.md`](docs/PROTECTION.md) — **defeated, byte-exact** |
+| 3 | Lift 68k → C | 🔨 **next** |
 | 4 | Toolbox HAL → SDL2 (QuickDraw/Event/Sound) | ⬜ |
 | 5 | Build & debug to a playable table | ⬜ |
 | 6 | Ship native + extras | ⬜ |
 
-> **Phase 2 plot twist:** the game is copy-protected — **"HLS Duplication"**. The
-> 68k code is *encrypted at rest*; **CODE 4 is a plaintext self-decrypting loader**
-> (entry at seg 4 +0x42) that unpacks the rest at launch. We're reversing it
-> statically (`ext/macrecomp/tools/unprotect.py`) and it's going well:
-> - ✅ **Jump table cracked** — an `eor $F55C` + additive chain recovers **230/265**
->   entries as clean `_LoadSeg` thunks, i.e. the **full function directory**
->   (~230 functions: 141 in seg 2, 77 in seg 5). Written to `work/unpacked/jumptable.json`.
-> - ✅ **Stage-1 table** de-negated (revealed the `"Shufflepuck Cafe"` / `"HLS
->   Duplication"` strings and the loop-counter helper).
-> - 🔨 **Segment bodies** (`CODE 1/2/5`) use a per-segment header-seeded cipher
->   (keys `$40xx`) + a second LFSR pass — the remaining nut.
+> **Phase 2 plot twist — and its resolution.** The game is copy-protected
+> (**"HLS Duplication"**): the 68k code is *encrypted at rest* and **CODE 4 is a
+> plaintext self-decrypting loader** that unpacks it at launch. We reverse-
+> engineered the whole scheme and now defeat it **statically** with
+> `ext/macrecomp/tools/unprotect.py`:
+> - ✅ **Jump table** — `eor $F55C` + additive chain → the **full function
+>   directory** (230 functions: 141 in seg 2, 77 in seg 5) *and* the embedded
+>   `_GetResource` decrypt-handler.
+> - ✅ **Segment bodies** — per-segment key = a `$32E6`-poly CRC of the handler's
+>   own code, seeded by the segment header; decrypt is `next += (cur ^ K)`. All
+>   segments recover to **94–97% valid** code, **byte-exact** vs a Ghidra p-code
+>   emulation of the real handler (the oracle that cracked the CRC).
+> - ✅ **Real trap set:** 182 distinct Toolbox traps — ordinary QuickDraw + events
+>   + menus. Bounded and tractable. See [`docs/CLASSIFY.md`](docs/CLASSIFY.md).
 >
 > Full reverse-engineering writeup in [`docs/PROTECTION.md`](docs/PROTECTION.md).
 

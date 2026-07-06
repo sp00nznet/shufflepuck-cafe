@@ -63,22 +63,53 @@ directory** — every routine's segment + offset — is written to
 The ~35 unresolved tail entries are finished by the loader's **second pass**
 (the 0x138 LFSR), not yet replicated.
 
-## Segment-body cipher — WIP 🔨
+## Segment-body cipher — SOLVED ✅
 
-`CODE 1/2/5` bodies are *not* decrypted by the jump-table chain (tested: they
-stay at ~75% valid-instruction density vs a 95% known-good baseline). They are
-decrypted lazily by the patched `_GetResource`/`_LoadSeg` handlers using the
-LFSR pass, **seeded per segment by the segment's header word** — which is *not*
-a normal `(jt-offset, count)` header but a key:
+The decrypted jump table doesn't just list functions — ~35 of its "entries" are
+actually **plaintext handler code embedded in the A5 world**. One of them, at
+**A5+0x750**, is the `_GetResource` hook the loader installs. Disassembling it
+(it's already decrypted) gave the exact body cipher. For each `CODE` resource
+loaded:
 
-| CODE | header | candidate key |
-|-----:|--------|---------------|
-| 1 | `0000 400A` | `$400A` |
-| 2 | `8051 408D` | `$408D` |
-| 3 | `0721 4002` | `$4002` |
-| 5 | `84b9 404D` | `$404D` |
+```
+seed = (header_word  with bit 14 cleared) ^ resourceID      # the handler's `bclr #6,$2(a1)`
+K    = crc16(seed, key_material = handler code A5+0x750..0x868, poly $32E6)
+body: for (size/2 - 2) words starting at CODE+2:            # skip words that are 0
+        next += (cur ^ K)                                    #  (same additive chain, per-segment key K)
+```
 
-The keys share a constant high byte `0x40` with a per-segment low seed —
-a strong lead. Finishing this cipher (and the second jump-table pass) is the
-remaining Phase-2.5 work; the recovered jump table gives us the entry points to
-verify decrypted bodies against.
+The per-segment key `K` is a 16-bit CRC of the handler's *own* code (constant),
+seeded by the segment's header word and resource id. Recovered keys:
+
+| CODE | resID | seed | key K |
+|-----:|------:|------|-------|
+| 1 | 1 | `$000B` | `$02AE` |
+| 2 | 2 | `$008F` | `$CF4C` |
+| 5 | 5 | `$0048` | `$4900` |
+
+### How it was cracked
+
+Reading the handler gave the algorithm, but the CRC's exact bit-mixing
+(`roxr`/X-flag) was easy to get subtly wrong by hand — and no hand-reconstruction
+decrypted the bodies. The tie-breaker was **running the real handler in Ghidra's
+p-code emulator** (`ext/macrecomp/tools/ghidra/EmuDecrypt.java`): the CRC+decrypt
+span is pure arithmetic (no traps), so with the right register/memory setup the
+actual 68000 code decrypts the segment for us. That gave ground-truth plaintext
+(and the true key `$CF4C`), which pinned down the one-line CRC bug. The final
+`unprotect.py` is **pure Python and byte-exact** against the emulator output — no
+emulator needed to reproduce it.
+
+Result: `CODE 1/2/5` decrypt to **94–97%** valid-instruction density (matching a
+known-good control), and the real Toolbox trap set is now readable — see
+[CLASSIFY.md](CLASSIFY.md).
+
+## Segment sizes
+
+| CODE | bytes | role |
+|-----:|------:|------|
+| 0 | 2,136 | A5 jump table (entry 0 plaintext; rest `$F55C`-chained) + embedded handlers |
+| 1 | 996 | encrypted body, key `$02AE` |
+| 2 | 23,006 | encrypted body, key `$CF4C` — core logic |
+| 3 | 32 | encrypted, key `$000E` |
+| 4 | 1,322 | **plaintext decryptor / segment loader** |
+| 5 | 26,710 | encrypted body, key `$4900` — logic / physics / AI |

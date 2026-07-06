@@ -1,14 +1,14 @@
 # Phase 2 — Disassemble + classify (the go/no-go gate)
 
-## Verdict: **GO — but the code is copy-protected and must be unpacked first.**
+## Verdict: **GO. Protection defeated; real trap surface is small and standard.**
 
-Shufflepuck Cafe ships a **self-decrypting segment loader**. The 68k code is
-*encrypted at rest* inside the `CODE` resources; a small plaintext stub decrypts
-and runs it at launch. So the size is tractable and the app is otherwise a
-standard Toolbox program — but **nothing can be lifted until the CODE is
-unpacked**, and the trap scan of the raw (encrypted) segments is meaningless.
-
-This adds one milestone before lifting: **Phase 2.5 — unpack.**
+Shufflepuck Cafe ships a **self-decrypting segment loader** ("HLS Duplication").
+The 68k code is *encrypted at rest*; a plaintext stub (CODE 4) decrypts it at
+launch. That was a real detour — a whole **Phase 2.5 unpack** — but it's now
+**fully solved** ([PROTECTION.md](PROTECTION.md)): `ext/macrecomp/tools/unprotect.py`
+statically recovers all plaintext CODE, byte-exact. With the code decrypted, the
+real Toolbox surface is exactly the ordinary QuickDraw + events + menus + sound
+set predicted in Phase 0 — see below. **Confirmed tractable; proceed to lift.**
 
 ## How we know (evidence)
 
@@ -51,15 +51,26 @@ Tools (now in `ext/macrecomp/tools`): `disasm_code.py`, `scan_traps.py`, `traps.
    (`000d 0028 0048 00b8 001f 001f 0064 …`): coordinate / parameter tables
    (table geometry, opponent stats?). To be mapped after unpacking.
 
-## What leaked through (weak signal only)
+## The real trap set (after unpacking)
 
-Even scanning ciphertext, the standard Toolbox init boilerplate surfaced in
-plausible spots (`InitGraf _A86E`, `InitFonts _A8FE`, `InitWindows _A912`,
-`InitMenus _A930`, `InitDialogs _A97B`, `TEInit _A9CC`, `InitCursor _A850`,
-`GetNextEvent _A970`, `ModalDialog _A991`, `GetNewDialog`, `CopyBits _A8EC`).
-Treat as a hint, not the trap set — the real enumeration must wait for unpacked
-code. But it does suggest the eventual surface is ordinary (QuickDraw + events +
-dialogs + sound), consistent with the Phase-0 read.
+`scan_traps` on the **decrypted** segments: **182 distinct traps, 995 sites.**
+The histogram is exactly a single-window B&W game — QuickDraw-dominated:
+
+| Manager | Traps (by frequency) |
+|---------|----------------------|
+| **QuickDraw** (the bulk) | `SetPort`×97 · `CopyBits`×63 · `SetRect`×54 · `SetPortBits`×49 · `MoveTo`×49 · `GetPort`×46 · `LineTo`×40 · `PenPat/PenMode/PenSize` · `FillRect`×23 · `OffsetRect` · `Line` · `FrameRect` · `PaintRect` · `FillOval` · `PtInRect` · `InsetRect` · `UnionRect` · `GlobalToLocal` |
+| **Events** | `GetNextEvent`×11 · `TickCount`×20 · `GetMouse` · `StillDown` · `FlushEvents` |
+| **Text** | `DrawString`×11 · `TextFont/Face/Size/Mode` · `StringWidth` |
+| **Menus** | `DisableItem/EnableItem/CheckItem` · `GetRMenu` · `InsertMenu` · `DrawMenuBar` |
+| **Windows** | `NewWindow` · `SelectWindow` · `FrontWindow` · `BeginUpDate/EndUpDate` |
+| **Dialogs** | `Alert` |
+| **Memory/Resource** | `NewPtr` · `DisposePtr` · `BlockMove` · `GetResource` · `ReleaseResource` · `HLock` |
+| **Cursor** | `InitCursor` · `HideCursor` |
+
+No surprises — no networking, no sound-heavy driver work beyond the `ASND` calls,
+no exotic managers. This is the Phase-4 HAL surface, and it's small: implement
+QuickDraw's blitter + rect/line/pen primitives, a `GetNextEvent` pump, and thin
+Menu/Window/Dialog/Resource shims, all onto SDL2.
 
 ## Phase 2.5 — unpack (proposed)
 
