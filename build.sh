@@ -20,14 +20,15 @@ python "$MR/tools/extract_resources.py" "$IMG" -o work
 echo ">> unprotect (defeat HLS Duplication)"
 python "$MR/tools/unprotect.py" work/code -o work/unpacked
 echo ">> lift 68k -> C"
-for s in 1 2 5; do
-  python "$MR/tools/lift68k.py" "work/unpacked/CODE_${s}.dec.bin" --seg "$s" \
-      --jt work/unpacked/jumptable.json -o src/gen
-done
-echo ">> compile + link"
+python "$MR/tools/lift68k.py" work/unpacked/CODE_1.dec.bin --seg 1 --jt work/unpacked/jumptable.json -o src/gen
+python "$MR/tools/lift68k.py" work/unpacked/CODE_5.dec.bin --seg 5 --jt work/unpacked/jumptable.json -o src/gen
+# seg 2 needs the boot entry (0x3838) forced as a function (nothing bsr's to it)
+python "$MR/tools/lift68k.py" work/unpacked/CODE_2.dec.bin --seg 2 --jt work/unpacked/jumptable.json --entry 0x3838 -o src/gen
+
+echo ">> compile + link (SDL2 Toolbox HAL)"
 mkdir -p build
-$CC -std=c11 -O1 -I"$MR/include" \
+$CC -std=c11 -O1 -I"$MR/include" $(pkg-config --cflags sdl2) \
     src/main.c src/gen/code_1.c src/gen/code_2.c src/gen/code_5.c \
-    "$MR/runtime/m68k.c" -o build/shufflepuck
-echo ">> built build/shufflepuck"
-./build/shufflepuck || true
+    "$MR/runtime/m68k.c" "$MR/runtime/quickdraw.c" "$MR/runtime/toolbox.c" "$MR/runtime/platform_sdl.c" \
+    -DMACRECOMP_NO_TRAP_STUB $(pkg-config --libs sdl2) -lm -o build/shufflepuck
+echo ">> built build/shufflepuck  (run: ./build/shufflepuck work/unpacked)"
