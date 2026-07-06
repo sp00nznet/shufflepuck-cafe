@@ -83,21 +83,25 @@ creator `PUCK`, 644 KB resource fork):
 | 0 | Acquire + recon | ✅ [`docs/RECON.md`](docs/RECON.md) |
 | 1 | Extract resources (CODE + assets) | ✅ via `ext/macrecomp` |
 | 2 | Disassemble + classify trap surface | ✅ [`docs/CLASSIFY.md`](docs/CLASSIFY.md) — **GO, but the code is protected** |
-| 2.5 | Unpack the self-decrypting CODE | 🔨 **next** |
+| 2.5 | Unpack the self-decrypting CODE | 🟡 [`docs/PROTECTION.md`](docs/PROTECTION.md) — jump table **cracked**; segment bodies WIP |
 | 3 | Lift 68k → C | ⬜ |
 | 4 | Toolbox HAL → SDL2 (QuickDraw/Event/Sound) | ⬜ |
 | 5 | Build & debug to a playable table | ⬜ |
 | 6 | Ship native + extras | ⬜ |
 
-> **Phase 2 plot twist:** the game is copy-protected. The 68k code is *encrypted
-> at rest* inside the `CODE` resources; **CODE 4 is a plaintext self-decrypting
-> segment loader** (entry point at seg 4 +0x42) that unpacks the rest at launch.
-> Proven by a control (the disk's Finder disassembles cleanly; Shufflepuck's CODE
-> is noise) and by reading CODE 4's `neg.w`-loop / `_NewPtr` / `_GetResource`
-> decryptor. It's not a simple cipher (tested). So a small **Phase 2.5 unpack**
-> lands before lifting — either a dynamic snapshot (let it decrypt itself, dump
-> memory — how Bolo beat PKLITE) or a static reversal of CODE 4. See
-> [`docs/CLASSIFY.md`](docs/CLASSIFY.md).
+> **Phase 2 plot twist:** the game is copy-protected — **"HLS Duplication"**. The
+> 68k code is *encrypted at rest*; **CODE 4 is a plaintext self-decrypting loader**
+> (entry at seg 4 +0x42) that unpacks the rest at launch. We're reversing it
+> statically (`ext/macrecomp/tools/unprotect.py`) and it's going well:
+> - ✅ **Jump table cracked** — an `eor $F55C` + additive chain recovers **230/265**
+>   entries as clean `_LoadSeg` thunks, i.e. the **full function directory**
+>   (~230 functions: 141 in seg 2, 77 in seg 5). Written to `work/unpacked/jumptable.json`.
+> - ✅ **Stage-1 table** de-negated (revealed the `"Shufflepuck Cafe"` / `"HLS
+>   Duplication"` strings and the loop-counter helper).
+> - 🔨 **Segment bodies** (`CODE 1/2/5`) use a per-segment header-seeded cipher
+>   (keys `$40xx`) + a second LFSR pass — the remaining nut.
+>
+> Full reverse-engineering writeup in [`docs/PROTECTION.md`](docs/PROTECTION.md).
 
 See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap.
 
