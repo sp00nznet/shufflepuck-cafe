@@ -9,9 +9,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 
 void register_seg_1(uint32_t base);
 void register_seg_2(uint32_t base);
+void register_seg_3(uint32_t base);
 void register_seg_5(uint32_t base);
 
 /* flat address-space layout */
@@ -20,12 +22,13 @@ enum {
     A5_BASE   = 0x00200000,
     SEG1      = 0x00300000,
     SEG2      = 0x00310000,
+    SEG3      = 0x00350000,
     SEG5      = 0x00340000,
     MEM_SIZE  = 0x02000000,          /* 32 MB */
-    MAIN_OFF  = 0x3838,              /* game main: the InitGraf/.../InitCursor sequence */
+    MAIN_OFF  = 0x3a06,             /* fn_2_3a06 = real main (init + event loop) */
 };
 
-static uint32_t seg_base(int s){ return s==1?SEG1 : s==2?SEG2 : s==5?SEG5 : 0; }
+static uint32_t seg_base(int s){ return s==1?SEG1 : s==2?SEG2 : s==3?SEG3 : s==5?SEG5 : 0; }
 
 static long load(const char *dir, const char *name, uint8_t *dst, long max){
     char path[512]; snprintf(path,sizeof path,"%s/%s",dir,name);
@@ -41,8 +44,8 @@ int main(int argc, char **argv){
 
     /* load decrypted segment code (drop the 4-byte seg header) */
     static uint8_t buf[0x20000];
-    for(int i=0;i<3;i++){
-        int s = (int[]){1,2,5}[i]; char nm[32]; snprintf(nm,sizeof nm,"CODE_%d.dec.bin",s);
+    for(int i=0;i<4;i++){
+        int s = (int[]){1,2,3,5}[i]; char nm[32]; snprintf(nm,sizeof nm,"CODE_%d.dec.bin",s);
         long n=load(dir,nm,buf,sizeof buf);
         memcpy(M.mem + seg_base(s), buf+4, n-4);
     }
@@ -55,11 +58,30 @@ int main(int argc, char **argv){
         uint8_t *e=buf+16+i*8;
         uint16_t off=(e[0]<<8)|e[1], push=(e[2]<<8)|e[3], seg=(e[4]<<8)|e[5], trap=(e[6]<<8)|e[7];
         if(push==0x3F3C && trap==0xA9F0 && seg_base(seg))
-            m68k_jt_set(jtoff + i*8, seg_base(seg) + off);
+            /* code jsr's to entry+2 (the `move.w #seg; _LoadSeg` thunk), not the
+             * entry start (which holds the routine's offset word) */
+            m68k_jt_set(jtoff + i*8 + 2, seg_base(seg) + off);
     }
 
-    register_seg_1(SEG1); register_seg_2(SEG2); register_seg_5(SEG5);
+    register_seg_1(SEG1); register_seg_2(SEG2); register_seg_3(SEG3); register_seg_5(SEG5);
     toolbox_init();
+
+    /* register the app's own resources (PICT/MENU/STR/…) from work/rsrc */
+    { char rd[600]; snprintf(rd,sizeof rd,"%s/../rsrc",dir);
+      DIR *d=opendir(rd); int nres=0; struct dirent *e;
+      while(d && (e=readdir(d))){
+          char nm[256]; strncpy(nm,e->d_name,sizeof nm-1); nm[sizeof nm-1]=0;
+          char *dot=strstr(nm,".bin"); if(!dot) continue; *dot=0;
+          char *us=strrchr(nm,'_'); if(!us) continue; int id=atoi(us+1); *us=0;
+          char path[900]; snprintf(path,sizeof path,"%s/%s",rd,e->d_name);
+          FILE *f=fopen(path,"rb"); if(!f) continue;
+          fseek(f,0,SEEK_END); long n=ftell(f); fseek(f,0,SEEK_SET);
+          uint8_t *b=(uint8_t*)malloc(n>0?n:1); if(fread(b,1,n,f)!=(size_t)n){} fclose(f);
+          res_add(nm, id, b, (int)n); nres++;
+      }
+      if(d) closedir(d);
+      fprintf(stderr,"loaded %d resources\n", nres);
+    }
     plat_open("Shufflepuck Cafe", 2);
 
     M.a[5] = A5_BASE;
