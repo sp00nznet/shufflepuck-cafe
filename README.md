@@ -91,7 +91,7 @@ creator `PUCK`, 644 KB resource fork):
 | 2.5 | Unpack the self-decrypting CODE | ✅ [`docs/PROTECTION.md`](docs/PROTECTION.md) — **defeated, byte-exact** |
 | 3 | Lift 68k → C | ✅ **98.5 / 99.9 / 100%** coverage; whole program compiles + links |
 | 4 | Toolbox HAL → SDL2 (QuickDraw/Event/Sound) | ✅ ~95 traps + Resource Mgr + CopyBits/DrawPicture |
-| 5 | Wire the game to the HAL + debug to a playable table | 🟢 **boots & renders the title screen**, runs 3500+ traps of real logic; blocked on an inline-table `case` dispatcher (see below) |
+| 5 | Wire the game to the HAL + debug to a playable table | 🟢 **runs its main render loop** — 700k+ traps/frame no crash; needs offscreen-bitmap QuickDraw + input (see below) |
 | 6 | Ship native + extras | ⬜ |
 
 > **Phase 2 plot twist — and its resolution.** The game is copy-protected
