@@ -13,6 +13,11 @@
 **Broderbund, 1988 → native code, today.**
 No emulator. The original 68k Macintosh binary, taken apart and rebuilt.
 
+![Shufflepuck Cafe title screen](docs/title.png)
+
+*The title screen — the copy-protection is defeated, the 68k is lifted to C, and
+the recompiled game boots through the Toolbox HAL and draws this.*
+
 </div>
 
 ---
