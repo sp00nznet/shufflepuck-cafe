@@ -33,3 +33,9 @@ __pycache__/
 *.png
 trace.txt
 *.err
+
+gdb*.txt
+t.txt
+b.txt
+cmds*.txt
+frames/
