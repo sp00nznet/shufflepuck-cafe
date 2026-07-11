@@ -66,7 +66,9 @@ to outlive their 800K floppies.
 
 ## Status
 
-🚧 **Phase 0 done — the patient is on the table and it's a clean, small one.**
+🟢 **Phase 5 — the recomp boots, defeats the copy-protection, lifts every 68k
+segment to C, and now runs its render loop drawing real 1-bit content to a
+framebuffer.** No emulator; this is the original machine code rebuilt.
 
 Real recon from the 4am-cracked v1.0 disk (`Shufflepuck Cafe`, type `APPL`,
 creator `PUCK`, 644 KB resource fork):
@@ -91,8 +93,19 @@ creator `PUCK`, 644 KB resource fork):
 | 2.5 | Unpack the self-decrypting CODE | ✅ [`docs/PROTECTION.md`](docs/PROTECTION.md) — **defeated, byte-exact** |
 | 3 | Lift 68k → C | ✅ **98.5 / 99.9 / 100%** coverage; whole program compiles + links |
 | 4 | Toolbox HAL → SDL2 (QuickDraw/Event/Sound) | ✅ ~95 traps + Resource Mgr + CopyBits/DrawPicture |
-| 5 | Wire the game to the HAL + debug to a playable table | 🟢 **runs its main render loop** — 700k+ traps/frame no crash; needs offscreen-bitmap QuickDraw + input (see below) |
+| 5 | Wire the game to the HAL + debug to a playable table | 🟢 **renders real content** — offscreen-bitmap QuickDraw works and composites to the screen; currently parked in the intro/init loop *before* the event loop (input wiring + last draw-fidelity next) |
 | 6 | Ship native + extras | ⬜ |
+
+> **Phase 5 breakthrough — the black screen was a calling-convention bug, not a
+> QuickDraw one.** The lifter was lowering 68k `jmp` (and fall-throughs) as
+> *calls*, which push a fake return address. A `jmp` is a tail transfer, not a
+> call — so this corrupted the stack of THINK C's Memory-Manager glue, and every
+> `NewPtr` through it returned the fake pointer. The game stored that as the
+> `baseAddr` of **all** its offscreen bitmaps, so every draw fell out of bounds →
+> black. Fixed in [macrecomp](https://github.com/sp00nznet/macrecomp) with proper
+> tail-jumps (`m68k_jump`), a sentinel-aware `rts`, and lowering all three
+> THINK C `switch` dispatchers. Offscreen buffers now get real heap addresses and
+> the recomp draws real 1-bit art instead of a black void.
 
 > **Phase 2 plot twist — and its resolution.** The game is copy-protected
 > (**"HLS Duplication"**): the 68k code is *encrypted at rest* and **CODE 4 is a
@@ -126,9 +139,10 @@ shufflepuck-cafe/
 
 ## Building & running
 
-The lifted C **compiles and links** into a native binary today (it doesn't *play*
-yet — that needs the Phase-4 Toolbox HAL). Clone with the toolkit submodule, drop
-your own disk image in `original/`, and build:
+The lifted C **compiles, links, and runs** today — it boots through the Toolbox
+HAL and renders 1-bit art, though it isn't *playable* yet (parked in the intro
+before the event loop; input wiring is next). Clone with the toolkit submodule,
+drop your own disk image in `original/`, and build:
 
 ```bash
 git clone --recursive https://github.com/sp00nznet/shufflepuck-cafe.git
