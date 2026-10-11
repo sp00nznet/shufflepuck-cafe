@@ -7,6 +7,14 @@ All notable changes to this project are recorded here. The format follows
 ## [Unreleased]
 
 ### Added
+- **A whole match**: play to 15 and go back to the bar with Ctrl+O (Game >
+  New Opponent). The champion board shows its name in the game's own font.
+  Needs macrecomp #6 (fonts, a relative `Move`) and #7 (Command-key menus,
+  `HiWord`/`LoWord`), and #5's follow-up (the input script stopped at 1024
+  steps). Walls 7-9 in `docs/bringup.md`.
+- `--stroke x0,y0:x1,y1@s+dur` (a mouse glide in one argument), `--key ^c@s`
+  (with Command), and the score in the `[game]` line.
+- Conformance: 10/10, adding "the opponent scores" (a5-0xca6).
 - **A playable match**: title, bar, pick an opponent, the table, serve and
   volley. Needs macrecomp #2-#5 (banded DrawPicture into offscreen ports, the
   event mask and FlushEvents, pen patterns and CopyBits modes, scripted input).

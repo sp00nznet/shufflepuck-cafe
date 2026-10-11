@@ -40,9 +40,9 @@ SECONDS = 38
 def script():
     a = ['--click', '85,205@16', '--move', '240,340@21']
     for b in (23, 28, 33):
-        a += [x for i in range(35) for x in ('--move', f'240,{340 - 10 * i}@{b + 0.03 * i:.2f}')]
+        a += ['--stroke', f'240,340:240,0@{b}+1']
         if b != 33:
-            a += [x for i in range(35) for x in ('--move', f'240,{10 * i}@{b + 2 + 0.03 * i:.2f}')]
+            a += ['--stroke', f'240,0:240,340@{b + 2}+1']
     return a
 
 # (name, regex over the run's stderr, present=pass). Order is boot order.
@@ -57,7 +57,9 @@ MILESTONES = [
     # 50 comes from THINK C's DATA image; 0 means the startup globals are missing
     ('paddle sized from the startup globals', r'halfwidth=50 ', True),
     # the last stroke ends at the top of the screen: the paddle is at the far end
-    ('paddle follows the mouse', r'paddle=-?\d+,(2\d\d|3\d\d) *$', True),
+    ('paddle follows the mouse', r'paddle=-?\d+,(2\d\d|3\d\d) ', True),
+    # a5-0xca6 is the opponent's score: Skip returns a serve past us
+    ('the opponent scores', r'score=[1-9]\d*:', True),
     ('ran to the watchdog without faulting', r'\[watchdog\]', True),
     ('recording finalised', r'\[record\] [1-9]\d* frames', True),
 ]

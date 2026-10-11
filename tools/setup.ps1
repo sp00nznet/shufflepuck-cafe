@@ -154,5 +154,5 @@ Copy-Item "$Mingw\SDL2.dll" 'build\' -Force
 Step 5 "Making the shortcut"
 Set-Content -Path 'Shufflepuck.cmd' -Encoding ASCII -Value "@echo off`r`ncd /d `"%~dp0`"`r`nbuild\shufflepuck.exe work\unpacked %*"
 Say "  Done. Double-click Shufflepuck.cmd to run it." 'Green'
-Say "  Click an opponent at the bar; the mouse moves your paddle. No sound yet (see the README)."
+Say "  Click an opponent at the bar; the mouse moves your paddle. Ctrl+O goes back to the bar. No sound yet."
 Read-Host "Press Enter to close" | Out-Null

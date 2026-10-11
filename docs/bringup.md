@@ -1,8 +1,8 @@
-# Bring-up: from the intro to a live match
+# Bring-up: from the intro to a whole match
 
-Each wall between "reaches the event loop" and "serves and volleys", in the
-order they were hit, with the evidence that found it. The fixes for the first
-four are toolkit PRs (macrecomp #2-#5); the last is this repo's loader
+Each wall between "reaches the event loop" and "plays a match and goes back to
+the bar", in the order they were hit, with the evidence that found it. Most
+fixes are toolkit PRs (macrecomp #2-#7); wall 5 is this repo's loader
 (`src/main.c`). The tools that found them are worth knowing first.
 
 ## Tools
@@ -82,3 +82,31 @@ a5-0x6a6. **Fix: `src/main.c` sets `$908` and calls both routines before main.**
 The paddle's depth is the mouse's place inside a 300-pixel box that follows the
 mouse (`fn_5_363a`), so a 140-pixel push stops short of the puck. The
 conformance script pushes from v=340 to v=0 in 1 s.
+
+## 7. The champion's name was missing
+
+The bar's "Current Champion" board was blank. `MRCHARS=1` showed "Biff Raunch"
+drawn into the offscreen buffer at 0,0: the game centres it with
+`StringWidth`, then `Move(-w/2, 0)`, and the runtime's `Move` set the pen to
+0,0 instead of moving it. The runtime also ignored `TextFont`/`TextSize`; the
+game carries its own fonts (`FONT` 1548, 29452, 29458). On the way back from a
+match the name went blank again: glyphs took their ink from the pen pattern,
+which the table's fade leaves white. **Fix: macrecomp #6.**
+
+## 8. Scripted matches froze partway
+
+A long scripted run stopped scoring after about 25 serves. The paddle routine
+(`fn_5_363a`) was still calling `GetMouse` thousands of times; the mouse had
+stopped moving because the runtime's input script held 1024 steps and dropped
+the rest (a stroke is ~30). **Fix: macrecomp #5, follow-up commit.** The
+loader's `--stroke` writes a stroke as one argument, since a match of single
+moves runs past Windows' 32k command line.
+
+## 9. After a match, nothing happened
+
+The score lives at a5-0xca6 (opponent) and a5-0xca8 (you); first to 15 wins
+(`fn_2_11d4`). At 15 the game shows the cursor, enables its menus and waits in
+its main event loop for Game > New Game (Cmd-N) or New Opponent (Cmd-O). The
+runtime's MenuKey answered nothing, the key carried no Command modifier, and
+`HiWord`/`LoWord` (`$A86A`/`$A86B`), which split the answer, were unimplemented.
+**Fix: macrecomp #7.** The menu bar itself is not drawn yet.

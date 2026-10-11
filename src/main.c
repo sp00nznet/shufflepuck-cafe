@@ -55,26 +55,39 @@ static uint32_t globals_size(const char *dir){
 /* Game state at exit, for the conformance harness: a5-0xc3c is the bar's
  * state (the picked opponent, 1 = Skip), a5-0x696 the paddle's half-width
  * (50 from the DATA defaults; 0 if the THINK C startup did not run), and
- * a5-0x694/-0x692 where the mouse has put the paddle. */
+ * a5-0x694/-0x692 where the mouse has put the paddle, and the score as
+ * opponent:you (a5-0xca6, a5-0xca8; first to 15 wins). */
 static void report_state(void){
-    fprintf(stderr, "[game] state=%d halfwidth=%d paddle=%d,%d\n",
+    fprintf(stderr, "[game] state=%d halfwidth=%d paddle=%d,%d score=%d:%d\n",
         (int16_t)m68k_r16(A5_BASE-0xc3c), (int16_t)m68k_r16(A5_BASE-0x696),
-        (int16_t)m68k_r16(A5_BASE-0x694), (int16_t)m68k_r16(A5_BASE-0x692));
+        (int16_t)m68k_r16(A5_BASE-0x694), (int16_t)m68k_r16(A5_BASE-0x692),
+        (int16_t)m68k_r16(A5_BASE-0xca6), (int16_t)m68k_r16(A5_BASE-0xca8));
 }
 
 int main(int argc, char **argv){
     /* shufflepuck [--headless] [--record out.mp4] [--watchdog secs]
-     *             [--move x,y@secs] [--click x,y@secs] [--key c@secs] [work/unpacked] */
+     *             [--move x,y@secs] [--click x,y@secs] [--key c@secs|^c@secs]
+     *             [--stroke x0,y0:x1,y1@secs+dur] [work/unpacked]
+     * A stroke glides the mouse in 1/30 s steps; serving needs one, and a match
+     * of them as single moves runs past Windows' 32k command line. */
     const char *dir = "work/unpacked", *record = NULL;
     int headless = 0, watchdog = 0;
     for(int i=1;i<argc;i++){
-        int x, y; double t; char c;
+        int x, y, x1, y1; double t, dur; char c;
         if(!strcmp(argv[i],"--headless")) headless = 1;
         else if(!strcmp(argv[i],"--record") && i+1<argc) record = argv[++i];
         else if(!strcmp(argv[i],"--watchdog") && i+1<argc) watchdog = atoi(argv[++i]);
         else if((!strcmp(argv[i],"--move") || !strcmp(argv[i],"--click")) && i+1<argc
                 && sscanf(argv[i+1],"%d,%d@%lf",&x,&y,&t)==3){
             plat_script(argv[i][2]=='m' ? 'm' : 'c', x, y, t); i++; }
+        else if(!strcmp(argv[i],"--stroke") && i+1<argc
+                && sscanf(argv[i+1],"%d,%d:%d,%d@%lf+%lf",&x,&y,&x1,&y1,&t,&dur)==6){
+            int n = dur > 0 ? (int)(dur*30) : 0;
+            for(int k=0;k<=n;k++)
+                plat_script('m', x + (x1-x)*k/(n?n:1), y + (y1-y)*k/(n?n:1), t + k/30.0);
+            i++; }
+        else if(!strcmp(argv[i],"--key") && i+1<argc && sscanf(argv[i+1],"^%c@%lf",&c,&t)==2){
+            plat_script('k', (unsigned char)c, 1, t); i++; }     /* ^o: Command-O */
         else if(!strcmp(argv[i],"--key") && i+1<argc && sscanf(argv[i+1],"%c@%lf",&c,&t)==2){
             plat_script('k', (unsigned char)c, 0, t); i++; }
         else if(argv[i][0]=='-'){ fprintf(stderr,"unknown option %s\n",argv[i]); return 2; }

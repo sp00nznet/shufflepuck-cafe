@@ -19,14 +19,16 @@ DOS-era Bolo/SkiFree recomps, retargeted from 8086+DOS to 68k+Toolbox.
   input, and the conformance harness (`tools/conformance.py`).
 - **A playable match** against Skip: pick at the bar, serve, volley
   ([docs/bringup.md](docs/bringup.md)).
+- **A whole match and back**: text in the game's own fonts (the champion
+  board), scoring to 15, and Command-key menus (Ctrl+O) back to the bar.
 
 ## Next
 
-- **Text.** The scoreboard and the opponents' speech balloons are blank: find
-  which text traps they use and what the runtime's font path drops.
-- **A whole match and back.** Scoring, a won/lost game returning to the bar,
-  and the other opponents. Add each as a conformance milestone.
-- **Menus and dialogs** from the table (Options, the champions roster).
+- **The menu bar.** Drawn, and pulled down with the mouse (MenuSelect); now
+  only the Command keys work. Then the dialogs behind it (Paddle Size, the
+  Roster of Champions).
+- **The other opponents**, and a match you win (needs a scripted player that
+  returns the puck). Add each as a conformance milestone.
 - **The 4 untranslated instructions in CODE 2:** the `sr` save/restore and one
   `asl.w` memory form. (The 3 in CODE 1 are THINK C's `switch` helpers, lowered
   at each call site and never reached.)

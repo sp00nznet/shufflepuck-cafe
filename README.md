@@ -30,7 +30,7 @@ mode). It's the classic-Mac sibling of the pcrecomp ports of *Bolo* and *SkiFree
 files are in this repository, and neither is the generated C: you supply your
 own copy and the pipeline builds everything locally.
 
-## Status: v0.1.0-dev, alpha. You can play a match: pick an opponent at the bar, serve and volley. No sound, no scoreboard text yet.
+## Status: v0.1.0-dev, alpha. You can play a whole match: pick an opponent at the bar, play to 15, and go back to the bar with Ctrl+O. No sound, no menu bar yet.
 
 | Stage | State |
 |---|---|
@@ -39,13 +39,13 @@ own copy and the pipeline builds everything locally.
 | Copy protection (Phase 2.5) | **defeated statically, byte-exact**: HLS Duplication's jump table and per-segment body cipher ([PROTECTION.md](docs/PROTECTION.md)) |
 | Lift (Phase 3) | 598 functions, 15,579 instructions, 7 not translated: the 3 in CODE 1 are THINK C's `switch` helpers, which are lowered at each call site and never reached; 4 in CODE 2 |
 | Toolbox HAL (Phase 4) | QuickDraw (banded pictures, patterns, transfer modes), Resource, Event, Window, Menu, Dialog and File Managers in macrecomp |
-| Run (Phase 5) | **plays**: title, bar, opponent pick, the table, serve and volley, with THINK C's startup globals in place. How each wall fell: [bringup.md](docs/bringup.md) |
+| Run (Phase 5) | **plays a match**: title, bar (with the champion's name in the game's own font), opponent pick, the table, serve and volley, scoring to 15, and Command-key menus back to the bar. How each wall fell: [bringup.md](docs/bringup.md) |
 | Headless mode | `--headless --record out.mp4 --watchdog N`: no window, frames piped to ffmpeg. Works over RDP |
-| Scripted input | `--move x,y@s`, `--click x,y@s`, `--key c@s`: the mouse and keyboard by wall-clock seconds |
-| Conformance harness | `tools/conformance.py`: **9/9 milestones**, through a scripted pick of Skip and three serves; 7 untranslated instructions; fails on regression |
+| Scripted input | `--move x,y@s`, `--click x,y@s`, `--key c@s` (`^c` holds Command), `--stroke x0,y0:x1,y1@s+dur`: the mouse and keyboard by wall-clock seconds |
+| Conformance harness | `tools/conformance.py`: **10/10 milestones**, through a scripted pick of Skip, three serves and a point to Skip; 7 untranslated instructions; fails on regression |
 | Not yet | sound (`ASND`; `trap $A006` KillIO is the driver's first call), the scoreboard and the opponents' speech (text), menus beyond the bar |
 
-Needs macrecomp #1-#5 (the submodule is pinned to the top of that stack until it merges).
+Needs macrecomp #1-#7 (the submodule is pinned to the top of that stack until it merges).
 
 ## Screenshots
 
@@ -134,7 +134,8 @@ macOS). ffmpeg on `PATH` for `--record`.
 
 ```
 build/shufflepuck [--headless] [--record out.mp4] [--watchdog secs]
-                  [--move x,y@secs] [--click x,y@secs] [--key c@secs] [work/unpacked]
+                  [--move x,y@secs] [--click x,y@secs] [--key c@secs|^c@secs]
+                  [--stroke x0,y0:x1,y1@secs+dur] [work/unpacked]
 ```
 
 | Invocation | What it does |
@@ -142,11 +143,16 @@ build/shufflepuck [--headless] [--record out.mp4] [--watchdog secs]
 | `build/shufflepuck` | Windowed, 2x scale, reading `work/unpacked`. |
 | `build/shufflepuck --headless --record out.mp4 --watchdog 20` | No window, 20 s of video at 30 fps, then a clean exit. Works over RDP. |
 | `build/shufflepuck --headless --record out.mp4 --watchdog 30 --click 85,205@16` | The same, picking Skip at the bar once it is listening (about 16 s in). |
+| `... --stroke 240,340:240,0@23+1` | Glides the mouse up the screen over 1 s from 23 s in: a serve. |
+| `... --key ^o@300` | Command-O (Game > New Opponent) at 300 s: back to the bar. |
 | `py -3 tools/conformance.py` | Builds nothing. Runs the headless boot and scores it against `conformance.json` (`--update` accepts a new baseline). Skips with a message if you haven't built yet. |
 
 **Playing.** Wait out the title, then click an opponent at the bar (Skip Feeney,
 the kid in the striped shirt, is the first). Your paddle follows the mouse:
-side to side to line up, and a quick push up the screen to hit the puck.
+side to side to line up, and a quick push up the screen to hit the puck. First
+to 15 wins; the scoreboard keeps tally. Ctrl stands in for the Mac's Command
+key: Ctrl+O (New Opponent) goes back to the bar, Ctrl+N starts a new game. The
+menu bar isn't drawn yet.
 
 macrecomp's runtime reads `MR*` environment variables for debugging (`MRTRACE=1`
 traces every trap, `MRSHOT=f.pgm` writes the screen on each present, `MRDLG=1`
