@@ -15,16 +15,21 @@ DOS-era Bolo/SkiFree recomps, retargeted from 8086+DOS to 68k+Toolbox.
   byte-exact. See [docs/PROTECTION.md](docs/PROTECTION.md).
 - **Phase 3 — Lift 68k → C.** Whole program compiles and links.
 - **Phase 4 — Toolbox HAL → SDL2**, in `ext/macrecomp/runtime`.
-- **Headless mode** (`--headless --record out.mp4 --watchdog N`) and the
-  conformance harness (`tools/conformance.py`).
+- **Headless mode** (`--headless --record out.mp4 --watchdog N`), scripted
+  input, and the conformance harness (`tools/conformance.py`).
+- **A playable match** against Skip: pick at the bar, serve, volley
+  ([docs/bringup.md](docs/bringup.md)).
 
 ## Next
 
-- **Phase 5 — Debug to playable.** The game reaches its event loop and plays
-  the intro (credits, then the cantina). Next: input, the menu, and a playable
-  table against one opponent.
-- **The 7 untranslated instructions:** three computed `jmp (a0,dN.w)` in
-  CODE 1, the `sr` save/restore and one `asl.w` memory form in CODE 2.
+- **Text.** The scoreboard and the opponents' speech balloons are blank: find
+  which text traps they use and what the runtime's font path drops.
+- **A whole match and back.** Scoring, a won/lost game returning to the bar,
+  and the other opponents. Add each as a conformance milestone.
+- **Menus and dialogs** from the table (Options, the champions roster).
+- **The 4 untranslated instructions in CODE 2:** the `sr` save/restore and one
+  `asl.w` memory form. (The 3 in CODE 1 are THINK C's `switch` helpers, lowered
+  at each call site and never reached.)
 - **ASND sound.** Broderbund's custom async-sound container, reversed and
   played through SDL audio.
 - **Jump-table second pass.** ~35 tail entries are finished by the loader's

@@ -7,6 +7,17 @@ All notable changes to this project are recorded here. The format follows
 ## [Unreleased]
 
 ### Added
+- **A playable match**: title, bar, pick an opponent, the table, serve and
+  volley. Needs macrecomp #2-#5 (banded DrawPicture into offscreen ports, the
+  event mask and FlushEvents, pen patterns and CopyBits modes, scripted input).
+  Walls and evidence in `docs/bringup.md`.
+- The loader runs THINK C's startup (CODE 1 `0x340` and `0xb8`) before main,
+  so the initialised globals from `DATA 0`/`ZERO 0` and the `STRS 0` pool are
+  in place. Without them the paddle's half-width was 0.
+- `--move x,y@s`, `--click x,y@s`, `--key c@s` (scripted input), and a
+  `[game]` state line at exit for the harness.
+- Conformance: 9/9 milestones, through a scripted pick of Skip and three
+  serves (was 6/6, boot only).
 - The game reaches its event loop and plays the intro: credits, then the
   cantina. It needed its own data fork registered with the File Manager;
   without it the open failed and the game raised "Sorry, this disk is full."

@@ -30,28 +30,35 @@ mode). It's the classic-Mac sibling of the pcrecomp ports of *Bolo* and *SkiFree
 files are in this repository, and neither is the generated C: you supply your
 own copy and the pipeline builds everything locally.
 
-## Status: v0.1.0-dev, alpha. It boots, gets past the copy protection, plays the intro and reaches the cantina. It isn't playable yet.
+## Status: v0.1.0-dev, alpha. You can play a match: pick an opponent at the bar, serve and volley. No sound, no scoreboard text yet.
 
 | Stage | State |
 |---|---|
 | Recon (Phase 0) | done: v1.0 game disk, 6 CODE segments (54,202 B), 187 PICT, 27 ASND ([RECON.md](docs/RECON.md)) |
 | Trap surface (Phase 2) | GO: 182 distinct Toolbox traps ([CLASSIFY.md](docs/CLASSIFY.md)) |
 | Copy protection (Phase 2.5) | **defeated statically, byte-exact**: HLS Duplication's jump table and per-segment body cipher ([PROTECTION.md](docs/PROTECTION.md)) |
-| Lift (Phase 3) | 598 functions, 15,579 instructions, **7 not yet translated** (3 computed `jmp` in CODE 1, 4 in CODE 2) |
-| Toolbox HAL (Phase 4) | QuickDraw, Resource, Event, Window, Menu, Dialog and File Managers in macrecomp |
-| Run (Phase 5) | **reaches the event loop**: intro credits, then the cantina with the opponents in the dark. Input and the menu to a table are next |
+| Lift (Phase 3) | 598 functions, 15,579 instructions, 7 not translated: the 3 in CODE 1 are THINK C's `switch` helpers, which are lowered at each call site and never reached; 4 in CODE 2 |
+| Toolbox HAL (Phase 4) | QuickDraw (banded pictures, patterns, transfer modes), Resource, Event, Window, Menu, Dialog and File Managers in macrecomp |
+| Run (Phase 5) | **plays**: title, bar, opponent pick, the table, serve and volley, with THINK C's startup globals in place. How each wall fell: [bringup.md](docs/bringup.md) |
 | Headless mode | `--headless --record out.mp4 --watchdog N`: no window, frames piped to ffmpeg. Works over RDP |
-| Conformance harness | `tools/conformance.py`: **6/6 boot milestones**, 7 untranslated instructions; fails on regression |
-| Sound (ASND) | not started: `trap $A006 unimplemented` (KillIO) is the sound driver's first call |
+| Scripted input | `--move x,y@s`, `--click x,y@s`, `--key c@s`: the mouse and keyboard by wall-clock seconds |
+| Conformance harness | `tools/conformance.py`: **9/9 milestones**, through a scripted pick of Skip and three serves; 7 untranslated instructions; fails on regression |
+| Not yet | sound (`ASND`; `trap $A006` KillIO is the driver's first call), the scoreboard and the opponents' speech (text), menus beyond the bar |
+
+Needs macrecomp #1-#5 (the submodule is pinned to the top of that stack until it merges).
 
 ## Screenshots
 
-![The intro: the cantina, the opponents' eyes in the dark](docs/cantina.png)
+![A serve and a return against Skip Feeney, recorded headless](docs/volley.gif)
 
-*The recompiled game's intro, recorded with `--headless --record`: the
-cantina, with the regulars waiting in the dark.*
+*A serve and Skip's return, recorded with `--headless --record` and a scripted
+mouse stroke: the paddle is the see-through rectangle, the puck flies to the far
+end and back.*
 
-![The intro credits](docs/credits.png) ![The title screen](docs/title.png)
+![The title screen](docs/title.png) ![The bar](docs/bar.png) ![The table](docs/table.png)
+
+*The title screen (its rain animates), the bar where you pick an opponent, and
+the table.*
 
 ## Getting Started
 
@@ -126,14 +133,20 @@ macOS). ffmpeg on `PATH` for `--record`.
 ## Usage
 
 ```
-build/shufflepuck [--headless] [--record out.mp4] [--watchdog secs] [work/unpacked]
+build/shufflepuck [--headless] [--record out.mp4] [--watchdog secs]
+                  [--move x,y@secs] [--click x,y@secs] [--key c@secs] [work/unpacked]
 ```
 
 | Invocation | What it does |
 |---|---|
 | `build/shufflepuck` | Windowed, 2x scale, reading `work/unpacked`. |
 | `build/shufflepuck --headless --record out.mp4 --watchdog 20` | No window, 20 s of video at 30 fps, then a clean exit. Works over RDP. |
+| `build/shufflepuck --headless --record out.mp4 --watchdog 30 --click 85,205@16` | The same, picking Skip at the bar once it is listening (about 16 s in). |
 | `py -3 tools/conformance.py` | Builds nothing. Runs the headless boot and scores it against `conformance.json` (`--update` accepts a new baseline). Skips with a message if you haven't built yet. |
+
+**Playing.** Wait out the title, then click an opponent at the bar (Skip Feeney,
+the kid in the striped shirt, is the first). Your paddle follows the mouse:
+side to side to line up, and a quick push up the screen to hit the puck.
 
 macrecomp's runtime reads `MR*` environment variables for debugging (`MRTRACE=1`
 traces every trap, `MRSHOT=f.pgm` writes the screen on each present, `MRDLG=1`

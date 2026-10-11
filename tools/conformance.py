@@ -4,9 +4,11 @@
 Two fixed corpora, one pass/fail count each, compared against the committed
 baseline in conformance.json; a regression fails the run:
 
-* **Boot milestones**: a headless, recorded run of build/shufflepuck, scored by
-  the lines the loader and the macrecomp runtime print at each stage. The
-  original game is the ground truth: it does each of these on every start.
+* **Boot milestones**: a headless, recorded run of build/shufflepuck with a
+  scripted mouse (pick Skip at the bar, then three forward strokes that serve
+  the puck), scored by the lines the loader and the macrecomp runtime print,
+  and the game state the loader reports at exit. The original game is the
+  ground truth: it does each of these when played this way.
 * **Lift health**: from the generated tree, the instructions the lifter could
   not translate (m68k_unimplemented sites in src/gen). Fewer is better.
 
@@ -29,7 +31,19 @@ EXE = os.path.join(ROOT, 'build', 'shufflepuck.exe' if os.name == 'nt' else 'shu
 DATA = os.path.join(ROOT, 'work', 'unpacked')
 GEN = os.path.join(ROOT, 'src', 'gen')
 BASELINE = os.path.join(ROOT, 'conformance.json')
-SECONDS = 20
+SECONDS = 38
+
+# Seconds since start. The title and the bar's intro run on the clock, so the
+# bar is listening by 16 s. A stroke pushes the mouse from the bottom of the
+# screen to the top; the paddle's depth is the mouse's place in a 300-pixel
+# box that follows it, so a short stroke never reaches the puck.
+def script():
+    a = ['--click', '85,205@16', '--move', '240,340@21']
+    for b in (23, 28, 33):
+        a += [x for i in range(35) for x in ('--move', f'240,{340 - 10 * i}@{b + 0.03 * i:.2f}')]
+        if b != 33:
+            a += [x for i in range(35) for x in ('--move', f'240,{10 * i}@{b + 2 + 0.03 * i:.2f}')]
+    return a
 
 # (name, regex over the run's stderr, present=pass). Order is boot order.
 MILESTONES = [
@@ -38,6 +52,12 @@ MILESTONES = [
     # the data fork open used to fail and raise "Sorry, this disk is full."
     ('no dialog before the event loop', r'\[dlg\]', False),
     ('event loop reached', r'\[boot\] event loop reached', True),
+    # 1 = Skip: the bar's click handler and its event mask, FlushEvents
+    ('opponent picked at the bar', r'\[game\] state=1 ', True),
+    # 50 comes from THINK C's DATA image; 0 means the startup globals are missing
+    ('paddle sized from the startup globals', r'halfwidth=50 ', True),
+    # the last stroke ends at the top of the screen: the paddle is at the far end
+    ('paddle follows the mouse', r'paddle=-?\d+,(2\d\d|3\d\d) *$', True),
     ('ran to the watchdog without faulting', r'\[watchdog\]', True),
     ('recording finalised', r'\[record\] [1-9]\d* frames', True),
 ]
@@ -48,7 +68,7 @@ def boot():
     env = dict(os.environ, MRDLG='1')
     try:
         p = subprocess.run([EXE, '--headless', '--watchdog', str(SECONDS),
-                            '--record', os.path.join('scratch', 'conformance.mp4'), DATA],
+                            '--record', os.path.join('scratch', 'conformance.mp4'), DATA] + script(),
                            cwd=ROOT, env=env, capture_output=True, text=True,
                            errors='replace', timeout=SECONDS + 60)
         return p.stdout + p.stderr
@@ -71,7 +91,7 @@ def main():
         f.write(log)
     passed = 0
     for name, rx, want in MILESTONES:
-        ok = bool(re.search(rx, log)) == want
+        ok = bool(re.search(rx, log, re.M)) == want
         passed += ok
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")
     unimpl = sum(open(p, encoding='utf-8', errors='replace').read().count('m68k_unimplemented(')

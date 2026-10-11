@@ -36,14 +36,47 @@ static long load(const char *dir, const char *name, uint8_t *dst, long max){
     long n=fread(dst,1,max,f); fclose(f); return n;
 }
 
+/* Bytes THINK C's DATA/ZERO initialiser (CODE 1 0xb8) writes below A5: each
+ * DATA word is copied, and a zero word is followed by a run of zeros as long
+ * as the next ZERO word (the run's dbra is entered at its test, so n, not n+1). */
+static uint32_t globals_size(const char *dir){
+    uint8_t d[4096], z[4096]; long nd, nz;
+    char p[600]; FILE *f;
+    snprintf(p,sizeof p,"%s/../rsrc/DATA_0.bin",dir); f=fopen(p,"rb"); nd=f?(long)fread(d,1,sizeof d,f):0; if(f)fclose(f);
+    snprintf(p,sizeof p,"%s/../rsrc/ZERO_0.bin",dir); f=fopen(p,"rb"); nz=f?(long)fread(z,1,sizeof z,f):0; if(f)fclose(f);
+    uint32_t size=0; long k=0;
+    for(long i=0;i+1<nd;i+=2){
+        size+=2;
+        if(!d[i] && !d[i+1] && k+1<nz){ size+=(uint32_t)(z[k]<<8|z[k+1]); k+=2; }
+    }
+    return size;
+}
+
+/* Game state at exit, for the conformance harness: a5-0xc3c is the bar's
+ * state (the picked opponent, 1 = Skip), a5-0x696 the paddle's half-width
+ * (50 from the DATA defaults; 0 if the THINK C startup did not run), and
+ * a5-0x694/-0x692 where the mouse has put the paddle. */
+static void report_state(void){
+    fprintf(stderr, "[game] state=%d halfwidth=%d paddle=%d,%d\n",
+        (int16_t)m68k_r16(A5_BASE-0xc3c), (int16_t)m68k_r16(A5_BASE-0x696),
+        (int16_t)m68k_r16(A5_BASE-0x694), (int16_t)m68k_r16(A5_BASE-0x692));
+}
+
 int main(int argc, char **argv){
-    /* shufflepuck [--headless] [--record out.mp4] [--watchdog secs] [work/unpacked] */
+    /* shufflepuck [--headless] [--record out.mp4] [--watchdog secs]
+     *             [--move x,y@secs] [--click x,y@secs] [--key c@secs] [work/unpacked] */
     const char *dir = "work/unpacked", *record = NULL;
     int headless = 0, watchdog = 0;
     for(int i=1;i<argc;i++){
+        int x, y; double t; char c;
         if(!strcmp(argv[i],"--headless")) headless = 1;
         else if(!strcmp(argv[i],"--record") && i+1<argc) record = argv[++i];
         else if(!strcmp(argv[i],"--watchdog") && i+1<argc) watchdog = atoi(argv[++i]);
+        else if((!strcmp(argv[i],"--move") || !strcmp(argv[i],"--click")) && i+1<argc
+                && sscanf(argv[i+1],"%d,%d@%lf",&x,&y,&t)==3){
+            plat_script(argv[i][2]=='m' ? 'm' : 'c', x, y, t); i++; }
+        else if(!strcmp(argv[i],"--key") && i+1<argc && sscanf(argv[i+1],"%c@%lf",&c,&t)==2){
+            plat_script('k', (unsigned char)c, 0, t); i++; }
         else if(argv[i][0]=='-'){ fprintf(stderr,"unknown option %s\n",argv[i]); return 2; }
         else dir = argv[i];
     }
@@ -105,6 +138,21 @@ int main(int argc, char **argv){
     M.a[5] = A5_BASE;
     SP     = STACK_TOP;
 
+    /* THINK C's startup, which the protection loader ran before main and we
+     * skip by calling main directly. Without it every initialised global is
+     * zero -- the paddle's half-width among them, so the paddle drew as a
+     * sliver. Run the game's own lifted routines (CODE 1): 0x340 loads STRS
+     * into a heap block and returns it in A4, which the startup keeps in
+     * CODE 1's first long; 0xb8 fills the globals from CurStackBase up to A5
+     * out of DATA/ZERO (and DREL, empty here). We supply only CurStackBase,
+     * which the Segment Loader would have set: A5 minus the globals' size. */
+    m68k_w32(0x908, A5_BASE - globals_size(dir));
+    M.d[6] = 0x53545253;                                   /* 'STRS' */
+    m68k_call(SEG1 + 0x340);
+    m68k_w32(SEG1, M.a[4]);
+    m68k_call(SEG1 + 0xb8);
+
+    atexit(report_state);
     fprintf(stderr, "boot: calling game main (fn_2_%04x)...\n", MAIN_OFF);
     m68k_call(SEG2 + MAIN_OFF);
     fprintf(stderr, "boot: main returned\n");
