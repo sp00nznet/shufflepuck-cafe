@@ -2,7 +2,7 @@
  *
  * Lays out a flat 68k address space, loads the decrypted CODE segments and the
  * A5 jump table, wires inter-segment dispatch, and calls the game's main
- * (fn_2_3834 - the function that runs InitGraf/InitFonts/.../InitCursor).
+ * (fn_2_3a06: init, then the event loop).
  * Reads the decrypted segments from work/unpacked/ (produced by build.sh). */
 #include "macrecomp/m68k.h"
 #include "macrecomp/toolbox.h"
@@ -37,7 +37,17 @@ static long load(const char *dir, const char *name, uint8_t *dst, long max){
 }
 
 int main(int argc, char **argv){
-    const char *dir = argc>1 ? argv[1] : "work/unpacked";
+    /* shufflepuck [--headless] [--record out.mp4] [--watchdog secs] [work/unpacked] */
+    const char *dir = "work/unpacked", *record = NULL;
+    int headless = 0, watchdog = 0;
+    for(int i=1;i<argc;i++){
+        if(!strcmp(argv[i],"--headless")) headless = 1;
+        else if(!strcmp(argv[i],"--record") && i+1<argc) record = argv[++i];
+        else if(!strcmp(argv[i],"--watchdog") && i+1<argc) watchdog = atoi(argv[++i]);
+        else if(argv[i][0]=='-'){ fprintf(stderr,"unknown option %s\n",argv[i]); return 2; }
+        else dir = argv[i];
+    }
+    plat_config(headless, record, watchdog);
     M.memsize = MEM_SIZE;
     M.mem = (uint8_t*)calloc(1, MEM_SIZE);
     if(!M.mem){ perror("mem"); return 1; }
@@ -65,6 +75,14 @@ int main(int argc, char **argv){
 
     register_seg_1(SEG1); register_seg_2(SEG2); register_seg_3(SEG3); register_seg_5(SEG5);
     toolbox_init();
+    /* the game opens its own data fork (GetAppParms, then _Open on that name);
+     * without it the open fails and it raises "Sorry, this disk is full." */
+    if(!getenv("MRAPP")) putenv("MRAPP=Shufflepuck Cafe");
+    { char dp[600]; snprintf(dp,sizeof dp,"%s/../data_fork.bin",dir);
+      FILE *f=fopen(dp,"rb"); long n=0;
+      if(f){ fseek(f,0,SEEK_END); n=ftell(f); fclose(f); }
+      else fprintf(stderr,"missing %s (rerun build.sh)\n",dp);
+      fs_add("Shufflepuck Cafe","APPL","PUCK",dp,(uint32_t)n,NULL,0); }
 
     /* register the app's own resources (PICT/MENU/STR/…) from work/rsrc */
     { char rd[600]; snprintf(rd,sizeof rd,"%s/../rsrc",dir);

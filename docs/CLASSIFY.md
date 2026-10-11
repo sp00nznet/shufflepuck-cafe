@@ -28,16 +28,12 @@ Tools (now in `ext/macrecomp/tools`): `disasm_code.py`, `scan_traps.py`, `traps.
 
 3. **Entry 0 points at segment 4 — and CODE 4 is the plaintext decryptor.**
    The app's initial jump-table entry targets **seg 4, offset 0x42**. Disassembly
-   of CODE 4 from there is coherent self-modifying loader code:
+   of CODE 4 from there is coherent self-modifying loader code.
 
-   ```
-   neg.w  (a0)+ / cmpa.l a0,a1 / bne      ; decrypt a region in place
-   move.l #$400,d0 / _NewPtr              ; allocate scratch
-   … build a routine of NOPs + trailing RTS …
-   jsr    (a3)                            ; run the built code
-   _DisposePtr
-   move.l #'CODE',-(a7) / … / _GetResource ; pull a CODE segment, decrypt it
-   ```
+   In order, it negates a region of itself in place, allocates a 1 KB
+   scratch block with `_NewPtr`, builds a run of NOPs with a trailing RTS in it,
+   calls that, frees it with `_DisposePtr`, then `_GetResource`s a `CODE`
+   segment and transforms it.
 
    i.e. a runtime unpacker that `_GetResource`s each encrypted segment, transforms
    it, and dispatches — classic late-80s Mac protection.

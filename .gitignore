@@ -41,3 +41,11 @@ cmds*.txt
 frames/
 tc.txt
 *.tmp
+
+# setup / netlab / headless output
+setup.log
+build-farm/
+*.mp4
+scratch/
+Shufflepuck.cmd
+!docs/*.png

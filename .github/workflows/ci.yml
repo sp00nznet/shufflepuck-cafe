@@ -1,0 +1,23 @@
+# The game isn't in the repo, so CI can't lift or boot it: it lints the
+# pipeline and runs the conformance harness, which reports SKIPPED without
+# game data. Full builds and runs: netlab (README, Building from source).
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: bash -n build.sh
+      - run: shellcheck -S error build.sh
+      - run: python -m py_compile tools/conformance.py ext/macrecomp/tools/*.py
+      - run: python tools/conformance.py

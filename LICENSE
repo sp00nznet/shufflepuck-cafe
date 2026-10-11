@@ -2,12 +2,6 @@ MIT License
 
 Copyright (c) 2026 sp00nznet
 
-This license covers ONLY the original work in this repository: the
-reverse-engineering tooling, the hand-written runtime/HAL glue, and the build
-scripts. It does NOT cover *Shufflepuck Cafe* itself — the game, its code, and
-its art/sound resources remain © 1988 Broderbund Software and are not included
-in or distributed by this repository.
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights

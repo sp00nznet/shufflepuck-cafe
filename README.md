@@ -13,164 +13,164 @@
 **Broderbund, 1988 → native code, today.**
 No emulator. The original 68k Macintosh binary, taken apart and rebuilt.
 
-![Shufflepuck Cafe title screen](docs/title.png)
-
-*The title screen — the copy-protection is defeated, the 68k is lifted to C, and
-the recompiled game boots through the Toolbox HAL and draws this.*
-
 </div>
 
----
+## What it is
 
-## What is this?
+A static recompilation of *Shufflepuck Cafe* (Broderbund, 1988; Christopher
+Gross, Lauren Elliott, Gene Portwood): the copy-protected 68k Mac application
+unpacked, lifted to C, and run natively through a Toolbox HAL over SDL2.
 
-*Shufflepuck Cafe* is a 1988 air-hockey game by **Broderbund** (Christopher Gross,
-Lauren Elliott, Gene Portwood). You bellied up to a table in a grimy spaceport
-cantina and played one-on-one puck against a gallery of weirdos — the twitchy
-robot **Skip Feeney**, the cheating alien **Biff Raunch**, the untouchable
-**Princess Bejin**, the monstrous **Adder** — in glorious 512×342 **1-bit black &
-white**. The paddle tracked your mouse, the puck cracked off the walls, and your
-opponents *talked trash*. A certain kind of kid (👋) sank whole weekends into it.
+Built on the [**macrecomp**](https://github.com/sp00nznet/macrecomp) toolkit
+(vendored at [`ext/macrecomp`](ext/macrecomp)) and following the recomp
+collection's shared house style (layout, CLI, conformance harness, headless
+mode). It's the classic-Mac sibling of the pcrecomp ports of *Bolo* and *SkiFree*.
 
-It's also wonderfully *small* — one `PUCK`-creator application, **6 CODE segments,
-~52 KB of 68k**, and its art/sound as resources — which makes it a great candidate
-for **static recompilation**: not emulating a Mac, but lifting the original 68000
-machine code into C that compiles and runs natively today.
+**This is an unofficial fan project, not affiliated with Broderbund.** No game
+files are in this repository, and neither is the generated C: you supply your
+own copy and the pipeline builds everything locally.
 
-This repo is that effort, built with the [**macrecomp** toolkit](https://github.com/sp00nznet/macrecomp)
-(vendored at [`ext/macrecomp`](ext/macrecomp)) — the classic-Mac sibling of the
-DOS-era pcrecomp pipeline that resurrected *Bolo* and *SkiFree*.
+## Status: v0.1.0-dev, alpha. It boots, gets past the copy protection, plays the intro and reaches the cantina. It isn't playable yet.
 
-## Why bother?
+| Stage | State |
+|---|---|
+| Recon (Phase 0) | done: v1.0 game disk, 6 CODE segments (54,202 B), 187 PICT, 27 ASND ([RECON.md](docs/RECON.md)) |
+| Trap surface (Phase 2) | GO: 182 distinct Toolbox traps ([CLASSIFY.md](docs/CLASSIFY.md)) |
+| Copy protection (Phase 2.5) | **defeated statically, byte-exact**: HLS Duplication's jump table and per-segment body cipher ([PROTECTION.md](docs/PROTECTION.md)) |
+| Lift (Phase 3) | 598 functions, 15,579 instructions, **7 not yet translated** (3 computed `jmp` in CODE 1, 4 in CODE 2) |
+| Toolbox HAL (Phase 4) | QuickDraw, Resource, Event, Window, Menu, Dialog and File Managers in macrecomp |
+| Run (Phase 5) | **reaches the event loop**: intro credits, then the cantina with the opponents in the dark. Input and the menu to a table are next |
+| Headless mode | `--headless --record out.mp4 --watchdog N`: no window, frames piped to ffmpeg. Works over RDP |
+| Conformance harness | `tools/conformance.py`: **6/6 boot milestones**, 7 untranslated instructions; fails on regression |
+| Sound (ASND) | not started: `trap $A006 unimplemented` (KillIO) is the sound driver's first call |
 
-Because emulation runs old games; recompilation *frees* them. The output is native
-code you can read, debug, fix and extend — widescreen, save states, restored
-sound, maybe even the opponents nobody could beat. And because some games deserve
-to outlive their 800K floppies.
+## Screenshots
 
-## How it works
+![The intro: the cantina, the opponents' eyes in the dark](docs/cantina.png)
+
+*The recompiled game's intro, recorded with `--headless --record`: the
+cantina, with the regulars waiting in the dark.*
+
+![The intro credits](docs/credits.png) ![The title screen](docs/title.png)
+
+## Getting Started
+
+You need your own copy of *Shufflepuck Cafe* v1.0 as a DiskCopy 4.2 image of
+the game disk (`.dc42`). A v1.0 image is preserved by the community on the
+Internet Archive and Macintosh Garden. Nothing here downloads it for you.
+
+### Quick start (Windows)
+
+1. Download this repository (Code → Download ZIP) and unzip it, or clone it.
+2. Put your game disk image in the `original` folder (or anywhere; Setup asks).
+3. Double-click **`Setup.cmd`**. It checks for Python 3.10+, the macrecomp
+   toolkit and MSYS2's mingw64 gcc + SDL2, and asks before installing any of
+   them. Then it finds your disk image, builds, and makes **`Shufflepuck.cmd`**.
+4. Double-click `Shufflepuck.cmd`.
+
+If a step fails, Setup says what to do in one sentence and keeps the details in
+`setup.log`. Run it again and finished steps are skipped (`Setup.cmd -Force`
+redoes them).
+
+### Step by step
+
+The same steps Setup runs, by hand. Prerequisites: Python 3.10+, git, and
+[MSYS2](https://www.msys2.org) (Windows) or gcc + SDL2 + pkg-config (Linux,
+macOS). ffmpeg on `PATH` for `--record`.
+
+1. Get the code and the toolkit:
+   ```
+   git clone --recursive https://github.com/sp00nznet/shufflepuck-cafe.git
+   cd shufflepuck-cafe
+   ```
+   Already cloned without `--recursive`? `git submodule update --init --recursive`.
+2. Install the Python packages:
+   ```
+   py -3 -m pip install --user -r ext/macrecomp/tools/requirements.txt
+   ```
+3. (Windows) Install the compiler and SDL2, in an MSYS2 shell:
+   ```
+   pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2 mingw-w64-x86_64-pkgconf
+   ```
+4. Build, from Git Bash or an MSYS2 shell, with your image in `original/`:
+   ```
+   export PATH="/c/msys64/mingw64/bin:$PATH"
+   export PYTHON="$(cygpath -u "$(py -3 -c 'import sys;print(sys.executable)')")"
+   ./build.sh "original/Shufflepuck Cafe - Disk 2 (Game).dc42"
+   ```
+   Expected output (trimmed):
+   ```
+   >> extract resources
+   volume 'Untitled'  app '/Shufflepuck Cafe'  type=b'APPL' creator=b'PUCK' data=24310 rsrc=644810
+   >> unprotect (defeat HLS Duplication)
+   jump table: 230 functions  per-segment {1: 9, 2: 141, 3: 2, 4: 1, 5: 77}
+   self-check OK (keys match reference)
+   >> lift 68k -> C
+   CODE 1: 20 functions, 312 insns, 3 unimplemented, 23 traps -> src/gen\code_1.c
+   CODE 5: 292 functions, 8191 insns, 0 unimplemented, 408 traps -> src/gen\code_5.c
+   CODE 2: 284 functions, 7064 insns, 4 unimplemented, 516 traps -> src/gen\code_2.c
+   >> decode PICT art (for CopyBits/DrawPicture)
+   decoded 187 PICTs, 0 not decoded -> work/pict_png/
+   >> built build/shufflepuck  (run: ./build/shufflepuck work/unpacked)
+   ```
+5. Run it: `./build/shufflepuck work/unpacked`. On Windows, `SDL2.dll` must be
+   on `PATH` (the export above) or next to the exe (Setup copies it there).
+
+**Usual trip-ups.**
+- `python` opens the Microsoft Store: that's the Store alias. Use `py -3`.
+- `No module named machfs` during the build: with `mingw64/bin` first on `PATH`,
+  MSYS2's own Python shadows yours. That's why step 4 sets `PYTHON`.
+- `pkg-config: command not found`: the `pkgconf` package from step 3 is missing.
+- A tool you just installed isn't found: open a new window to pick up the new `PATH`.
+
+## Usage
 
 ```
-  Shufflepuck Cafe (HFS app: CODE 0..5 + 187 PICT + 27 ASND + MENU/DITL/…)
-        │  ① extract      ext/macrecomp/tools/extract_resources.py
-        ▼
-  CODE segments + asset catalog
-        │  ② disassemble   capstone M68K
-        │  ③ classify      enumerate Toolbox A-traps   ← the go/no-go gate
-        ▼
-  function table + trap set
-        │  ④ lift          68k → C against the macrecomp runtime
-        ▼
-  C source  ──⑤ HAL──▶  QuickDraw→SDL2, Toolbox→runtime  ──⑥ build──▶  native PUCK
+build/shufflepuck [--headless] [--record out.mp4] [--watchdog secs] [work/unpacked]
 ```
 
-## Status
+| Invocation | What it does |
+|---|---|
+| `build/shufflepuck` | Windowed, 2x scale, reading `work/unpacked`. |
+| `build/shufflepuck --headless --record out.mp4 --watchdog 20` | No window, 20 s of video at 30 fps, then a clean exit. Works over RDP. |
+| `py -3 tools/conformance.py` | Builds nothing. Runs the headless boot and scores it against `conformance.json` (`--update` accepts a new baseline). Skips with a message if you haven't built yet. |
 
-🟢 **Phase 5 — the recomp boots, defeats the copy-protection, lifts every 68k
-segment to C, and now runs its render loop drawing real 1-bit content to a
-framebuffer.** No emulator; this is the original machine code rebuilt.
+macrecomp's runtime reads `MR*` environment variables for debugging (`MRTRACE=1`
+traces every trap, `MRSHOT=f.pgm` writes the screen on each present, `MRDLG=1`
+logs dialog text). They're documented in its source.
 
-Real recon from the 4am-cracked v1.0 disk (`Shufflepuck Cafe`, type `APPL`,
-creator `PUCK`, 644 KB resource fork):
+## Building from source
 
-- ✅ **Acquired & mounted** the HFS image; extracted every resource with
-  macrecomp's `extract_resources.py`. Full map in [`docs/RECON.md`](docs/RECON.md).
-- ✅ **Code is tiny:** `CODE` 0–5 = **54,202 bytes** (seg 0 is the 2,136-byte A5
-  jump table; the real logic is ~52 KB across 5 segments — smaller than Bolo).
-- ✅ **Assets catalogued:** **187 `PICT`** (177 KB, standard 1-bit QuickDraw — the
-  table, the bar, every opponent's animation frames), **27 `ASND`** (391 KB —
-  Broderbund's *custom* async-sound type, to be reversed), bitmap `FONT`/`FOND`,
-  and normal `MENU`/`DITL`/`DLOG`/`WIND`/`ALRT`/`CURS`.
-- 🔎 **Scope read:** single B&W window + mouse. The Toolbox surface should be
-  bounded — QuickDraw blit, the event loop, a few menus/dialogs, and sound.
-  Phase 2 counts the exact traps and confirms.
-
-| Phase | What | State |
-|------:|------|-------|
-| 0 | Acquire + recon | ✅ [`docs/RECON.md`](docs/RECON.md) |
-| 1 | Extract resources (CODE + assets) | ✅ via `ext/macrecomp` |
-| 2 | Disassemble + classify trap surface | ✅ [`docs/CLASSIFY.md`](docs/CLASSIFY.md) — **GO, but the code is protected** |
-| 2.5 | Unpack the self-decrypting CODE | ✅ [`docs/PROTECTION.md`](docs/PROTECTION.md) — **defeated, byte-exact** |
-| 3 | Lift 68k → C | ✅ **98.5 / 99.9 / 100%** coverage; whole program compiles + links |
-| 4 | Toolbox HAL → SDL2 (QuickDraw/Event/Sound) | ✅ ~95 traps + Resource Mgr + CopyBits/DrawPicture |
-| 5 | Wire the game to the HAL + debug to a playable table | 🟢 **renders real content** — offscreen-bitmap QuickDraw works and composites to the screen; currently parked in the intro/init loop *before* the event loop (input wiring + last draw-fidelity next) |
-| 6 | Ship native + extras | ⬜ |
-
-> **Phase 5 breakthrough — the black screen was a calling-convention bug, not a
-> QuickDraw one.** The lifter was lowering 68k `jmp` (and fall-throughs) as
-> *calls*, which push a fake return address. A `jmp` is a tail transfer, not a
-> call — so this corrupted the stack of THINK C's Memory-Manager glue, and every
-> `NewPtr` through it returned the fake pointer. The game stored that as the
-> `baseAddr` of **all** its offscreen bitmaps, so every draw fell out of bounds →
-> black. Fixed in [macrecomp](https://github.com/sp00nznet/macrecomp) with proper
-> tail-jumps (`m68k_jump`), a sentinel-aware `rts`, and lowering all three
-> THINK C `switch` dispatchers. Offscreen buffers now get real heap addresses and
-> the recomp draws real 1-bit art instead of a black void.
-
-> **Phase 2 plot twist — and its resolution.** The game is copy-protected
-> (**"HLS Duplication"**): the 68k code is *encrypted at rest* and **CODE 4 is a
-> plaintext self-decrypting loader** that unpacks it at launch. We reverse-
-> engineered the whole scheme and now defeat it **statically** with
-> `ext/macrecomp/tools/unprotect.py`:
-> - ✅ **Jump table** — `eor $F55C` + additive chain → the **full function
->   directory** (230 functions: 141 in seg 2, 77 in seg 5) *and* the embedded
->   `_GetResource` decrypt-handler.
-> - ✅ **Segment bodies** — per-segment key = a `$32E6`-poly CRC of the handler's
->   own code, seeded by the segment header; decrypt is `next += (cur ^ K)`. All
->   segments recover to **94–97% valid** code, **byte-exact** vs a Ghidra p-code
->   emulation of the real handler (the oracle that cracked the CRC).
-> - ✅ **Real trap set:** 182 distinct Toolbox traps — ordinary QuickDraw + events
->   + menus. Bounded and tractable. See [`docs/CLASSIFY.md`](docs/CLASSIFY.md).
->
-> Full reverse-engineering writeup in [`docs/PROTECTION.md`](docs/PROTECTION.md).
-
-See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap.
-
-## Repo layout
+`build.sh` is the whole build: extract → unprotect → lift → compile. It
+regenerates `work/` and `src/gen/` from your image every time; both are
+gitignored, because they're derived from the copyrighted binary. `PYTHON`, `CC`
+and `PKG_CONFIG` override the tools. How the parts fit:
+[docs/architecture.md](docs/architecture.md).
 
 ```
 shufflepuck-cafe/
-  ext/macrecomp/   the 68k-Mac static-recomp toolkit (git submodule)
-  docs/            RECON.md · PLAN.md
-  original/        your own copy of the game (gitignored — see below)
-  work/            regeneratable extraction/analysis output (gitignored)
-  src/             lifted + hand-written runtime glue (later phases)
+  build.sh            the pipeline
+  Setup.cmd           one-click setup (tools/setup.ps1)
+  src/main.c          the loader: memory map, jump table, resources, CLI
+  tools/conformance.py  the boot/lift harness; conformance.json is its baseline
+  ext/macrecomp/      the 68k-Mac recomp toolkit (git submodule)
+  docs/               recon, classification, protection, architecture
+  original/           your own copy of the game (gitignored)
+  work/  src/gen/     generated from it (gitignored)
 ```
 
-## Building & running
+Day-to-day builds can run on [netlab](https://github.com/sp00nznet/netlab)
+(`netlab check shufflepuck`). It cross-builds on the mingw builder, and the
+QA run skips on machines without game data.
 
-The lifted C **compiles, links, and runs** today — it boots through the Toolbox
-HAL and renders 1-bit art, though it isn't *playable* yet (parked in the intro
-before the event loop; input wiring is next). Clone with the toolkit submodule,
-drop your own disk image in `original/`, and build:
+Roadmap: [ROADMAP.md](ROADMAP.md). Changes: [CHANGELOG.md](CHANGELOG.md).
+Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
-```bash
-git clone --recursive https://github.com/sp00nznet/shufflepuck-cafe.git
-# already cloned?  git submodule update --init --recursive
+## License
 
-# needs: python3 + macresources/machfs/capstone, and a C compiler
-# (Windows/MSYS2: export PATH="/c/msys64/mingw64/bin:$PATH" first)
-./build.sh "original/Shufflepuck Cafe - Disk 2 (Game).dc42"
-```
+MIT, see [LICENSE](LICENSE). It covers only the original work in this
+repository: the tooling, the loader, the harness and the build scripts.
 
-`build.sh` regenerates the lifted code from *your* image and compiles it —
-**nothing game-derived is committed to this repo** (`src/gen/` is gitignored;
-see the legal note). Only the hand-written harness (`src/main.c`) and the
-toolkit live here.
-
-## Credits & legal
-
-Original game © 1988 **Broderbund Software** (Christopher Gross, Lauren Elliott,
-Gene Portwood). *Shufflepuck Cafe* is long out of print and unsupported. This is
-a personal preservation / reverse-engineering project.
-
-**No game code or data is included in this repository.** Unlike freely-licensed
-shareware, Shufflepuck is commercial abandonware — so the disk image, the
-extracted `CODE`/`PICT`/`ASND` resources, and any lifted representation of them
-stay out of the repo (`original/` and `work/` are gitignored). You supply your
-own copy; a v1.0 image is preserved by the community on the Internet Archive and
-Macintosh Garden. All original code here (tooling and hand-written runtime) is
-MIT-licensed — see [LICENSE](LICENSE).
-
-Built with [macrecomp](https://github.com/sp00nznet/macrecomp) and far too much
-nostalgia for a cantina that never existed.
+*Shufflepuck Cafe* itself (the game, its code, and its art and sound) is
+© 1988 Broderbund Software, and none of it is included in or distributed by
+this repository. Generated source isn't distributed either.
