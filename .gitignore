@@ -49,3 +49,4 @@ build-farm/
 scratch/
 Shufflepuck.cmd
 !docs/*.png
+build-3ds/

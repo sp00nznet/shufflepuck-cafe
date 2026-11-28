@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#ifdef __3DS__
+#include <unistd.h>
+#endif
 
 void register_seg_1(uint32_t base);
 void register_seg_2(uint32_t base);
@@ -28,6 +31,18 @@ enum {
     MAIN_OFF  = 0x3a06,             /* fn_2_3a06 = real main (init + event loop) */
 };
 
+/* The folder above the segments (work/): the resources and the data fork are there. Made
+ * here, not as dir/..: the 3DS's SD card has no "..". */
+static char work[512];
+static void set_work(const char *dir){
+    snprintf(work, sizeof work, "%s", dir);
+    char *e = work + strlen(work);
+    while(e > work && (e[-1] == '/' || e[-1] == '\\')) *--e = 0;
+    char *sl = strrchr(work, '/'), *bs = strrchr(work, '\\');
+    if(bs > sl) sl = bs;
+    if(sl) *sl = 0; else snprintf(work, sizeof work, ".");
+}
+
 static uint32_t seg_base(int s){ return s==1?SEG1 : s==2?SEG2 : s==3?SEG3 : s==5?SEG5 : 0; }
 
 static long load(const char *dir, const char *name, uint8_t *dst, long max){
@@ -39,11 +54,11 @@ static long load(const char *dir, const char *name, uint8_t *dst, long max){
 /* Bytes THINK C's DATA/ZERO initialiser (CODE 1 0xb8) writes below A5: each
  * DATA word is copied, and a zero word is followed by a run of zeros as long
  * as the next ZERO word (the run's dbra is entered at its test, so n, not n+1). */
-static uint32_t globals_size(const char *dir){
+static uint32_t globals_size(void){
     uint8_t d[4096], z[4096]; long nd, nz;
     char p[600]; FILE *f;
-    snprintf(p,sizeof p,"%s/../rsrc/DATA_0.bin",dir); f=fopen(p,"rb"); nd=f?(long)fread(d,1,sizeof d,f):0; if(f)fclose(f);
-    snprintf(p,sizeof p,"%s/../rsrc/ZERO_0.bin",dir); f=fopen(p,"rb"); nz=f?(long)fread(z,1,sizeof z,f):0; if(f)fclose(f);
+    snprintf(p,sizeof p,"%s/rsrc/DATA_0.bin",work); f=fopen(p,"rb"); nd=f?(long)fread(d,1,sizeof d,f):0; if(f)fclose(f);
+    snprintf(p,sizeof p,"%s/rsrc/ZERO_0.bin",work); f=fopen(p,"rb"); nz=f?(long)fread(z,1,sizeof z,f):0; if(f)fclose(f);
     uint32_t size=0; long k=0;
     for(long i=0;i+1<nd;i+=2){
         size+=2;
@@ -72,6 +87,20 @@ int main(int argc, char **argv){
      * of them as single moves runs past Windows' 32k command line. */
     const char *dir = "work/unpacked", *record = NULL;
     int headless = 0, watchdog = 0;
+#ifdef __3DS__
+    /* No command line on a 3DS: beside the .3dsx, args.txt gives one (tests), log.txt the log. */
+    static char argbuf[4096], *av[128];
+    chdir("sdmc:/3ds/shufflepuck/");
+    freopen("log.txt", "w", stderr);
+    setvbuf(stderr, NULL, _IONBF, 0);
+    FILE *af = fopen("args.txt", "r");
+    argc = 1; argv = av; av[0] = "shufflepuck";
+    if(af){
+        argbuf[fread(argbuf, 1, sizeof argbuf - 1, af)] = 0;
+        fclose(af);
+        for(char *t = strtok(argbuf, " \t\r\n"); t && argc < 127; t = strtok(NULL, " \t\r\n")) av[argc++] = t;
+    }
+#endif
     for(int i=1;i<argc;i++){
         int x, y, x1, y1; double t, dur; char c;
         if(!strcmp(argv[i],"--headless")) headless = 1;
@@ -93,6 +122,7 @@ int main(int argc, char **argv){
         else if(argv[i][0]=='-'){ fprintf(stderr,"unknown option %s\n",argv[i]); return 2; }
         else dir = argv[i];
     }
+    set_work(dir);
     plat_config(headless, record, watchdog);
     M.memsize = MEM_SIZE;
     M.mem = (uint8_t*)calloc(1, MEM_SIZE);
@@ -124,14 +154,14 @@ int main(int argc, char **argv){
     /* the game opens its own data fork (GetAppParms, then _Open on that name);
      * without it the open fails and it raises "Sorry, this disk is full." */
     if(!getenv("MRAPP")) putenv("MRAPP=Shufflepuck Cafe");
-    { char dp[600]; snprintf(dp,sizeof dp,"%s/../data_fork.bin",dir);
+    { char dp[600]; snprintf(dp,sizeof dp,"%s/data_fork.bin",work);
       FILE *f=fopen(dp,"rb"); long n=0;
       if(f){ fseek(f,0,SEEK_END); n=ftell(f); fclose(f); }
       else fprintf(stderr,"missing %s (rerun build.sh)\n",dp);
       fs_add("Shufflepuck Cafe","APPL","PUCK",dp,(uint32_t)n,NULL,0); }
 
     /* register the app's own resources (PICT/MENU/STR/…) from work/rsrc */
-    { char rd[600]; snprintf(rd,sizeof rd,"%s/../rsrc",dir);
+    { char rd[600]; snprintf(rd,sizeof rd,"%s/rsrc",work);
       DIR *d=opendir(rd); int nres=0; struct dirent *e;
       while(d && (e=readdir(d))){
           char nm[256]; strncpy(nm,e->d_name,sizeof nm-1); nm[sizeof nm-1]=0;
@@ -159,7 +189,7 @@ int main(int argc, char **argv){
      * CODE 1's first long; 0xb8 fills the globals from CurStackBase up to A5
      * out of DATA/ZERO (and DREL, empty here). We supply only CurStackBase,
      * which the Segment Loader would have set: A5 minus the globals' size. */
-    m68k_w32(0x908, A5_BASE - globals_size(dir));
+    m68k_w32(0x908, A5_BASE - globals_size());
     M.d[6] = 0x53545253;                                   /* 'STRS' */
     m68k_call(SEG1 + 0x340);
     m68k_w32(SEG1, M.a[4]);
